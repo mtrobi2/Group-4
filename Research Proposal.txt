@@ -1,12 +1,7 @@
 Topic Proposal, 5% (Due: Oct 24 Saturday end-of-day) 
 Each team submit one proposal on Blackboard, in 150-200 words describe a) the research topic, b) the SMART question(s) of your research (you can still change them afterwards), c) the source of your data set(s) and how many (roughly) observations, and d) the link to your team's GitHub repo.
 
+The data set is from the official open data web site of the Canadian government. It depicts numerous details of how CO2 emission by vehicles can differ based on certain characteristics. The data was collected over a seven year period, and there are 7,385 vehicles in this data set. There are nine variables in the data set. Five of these variables are categorical, while the other four are numeric. The research question for this analysis is the following: what are the best indicators for a vehicle with high CO2 emissions? We hypothesize that the variables fuel consumption and engine size are the best indictors for high CO2 emissions, thus this theory will be tested in our analysis. High levels of CO2 emissions can produce extremely detrimental environmental and health consquences. Dealing with this occurrence is an extremely tricky and pressing issue around the globe. The end goal of our analysis is to provide noteworthy statistical findings to an automotive manufacturer in order for them to produce vehicles that do not emit high levels of CO2 emissions. 
 
-
-
-The research topic will focus on the CO2 emissions as the dependent variable.  We will be looking at how engine size, and fuel consumption affect CO2 emission.  
-
-What are the relationships between CO2 emissions and vehicle characteristics? 
-The dataset has roughly 7300 observations, which include the make, model, vehicle class, engine size, cylinders, transmission, fuel type, fuel consumption and CO2 Emissions.
-
-https://github.com/mtrobi2/Group-4
+Link to Data: https://open.canada.ca/data/en/dataset/98f1a129-f628-4ce4-b24d-6f16bf24dd64#wb-auto-6
+Link to GitHub: https://github.com/mtrobi2/Group-4
