@@ -1,17 +1,26 @@
----
+-----
 title: "CO2 Emissions Data Analysis"
-author: "Alexander Zakrzeski"
+author: "Alexander Zakrzeski","Tracie Robinson", "Purvi Jain", "Aditya Nayak"
 date: "October 8th, 2022"
-output: word_document
----
-
-```{r setup, include = FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-```
-
+output:
+  html_document:
+    code_folding: hide
+    number_sections: yes
+    always_allow_html: true
+    toc: yes
+    toc_depth: 3
+    toc_float: yes
+  word_document:
+    toc: yes
+    toc_depth: '3'
+  pdf_document:
+    toc: yes
+    toc_depth: '3'
+    df_print: paged
+-----
 These are the packages used in this data analysis.
 
-```{r}
+```{r init, include=F}
 library(readr)
 library(dplyr)
 library(tidyr)
@@ -23,6 +32,26 @@ library(AICcmodavg)
 library(fastDummies)
 library(caret)
 ```
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+	message = FALSE,
+	warning = FALSE,
+	results = "hide"
+)
+options(scientific=T, digits = 3) 
+```
+Transport emissions on the rise
+Vehicle emissions contribute to the increasing concentration of gases that are leading to climate change. The principal greenhouse gases associated with road transport are carbon dioxide (CO2), methane (CH4) and nitrous oxide (N2O). 
+
+Ever wondered how much CO2 is emitted by cars??
+
+The world has been facing severe air pollution concerns, with a major cause being the emission
+of polluting gases, specifically carbon dioxide (CO2). The emission primarily comes from the
+transportation sector
+
+![image](CO2Emission.jpg) 
+
+To calculate the amount of CO2 produced by a car, not only the CO2 emitted during use must be taken into account, but also the emissions caused by its production and disposal.
 
 I. Data Overview and Cleaning
 
@@ -35,10 +64,12 @@ characteristics can appear more than once in the data set.
 First, import the data. Then, check for missing values in the data. No missing 
 values were found.
 
-```{r}
+```{r init_data}
 data = read_csv("co2_emissions_canada.csv")
 
 glimpse(data)
+
+#xkabledply(data) 
 
 nacount <- function(x) {
   data <- x %>%
@@ -85,6 +116,7 @@ data <- data %>%
          Fuel_Type = `Fuel Type`,
          Fuel_Consumption = `Fuel Consumption Comb (L/100 km)`,
          Emissions = `CO2 Emissions(g/km)`)
+
 ```
 
 II. Data Exploration
@@ -99,6 +131,8 @@ it will be treated as a categorical variable for certain parts of this analysis.
 In the data, cars with four-cylinder engines are the most common.
 
 ```{r}
+
+#xkablesummary(data)
 ds <- data %>%
   select_if(is.numeric) %>%
   select(-Cylinders) %>%
