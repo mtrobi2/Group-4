@@ -1,0 +1,440 @@
+---
+title: "CO2 Emissions Data Analysis"
+author: "Aditya Nayak, Alexander Zakrzeski, Tracy Robinson, Purvi Jain"
+date: "`r Sys.Date()`" #"October 8th, 2022"
+output:
+  html_document:
+    code_folding: hide
+    df_print: paged
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ezids)
+# knitr::opts_chunk$set(warning = F, results = "markup", message = F)
+knitr::opts_chunk$set(warning = F, results = "hide", message = F)
+options(scientific=T, digits = 3) 
+```
+Transport emissions are on the rise.
+Vehicle emissions contribute to the increasing concentration of gases that are leading to climate change. The principal greenhouse gases associated with road transport are carbon dioxide (CO2), methane (CH4) and nitrous oxide (N2O). 
+
+Ever wondered how much CO2 is emitted by cars??
+
+The world has been facing severe air pollution concerns, with a major cause being the emission
+of polluting gases, specifically carbon dioxide (CO2). The emission primarily comes from the
+transportation sector.
+
+![CO2 Pollution](CO2Emission.jpg) 
+
+These are the packages used in this data analysis.
+```{r}
+library(readr) #For reading rectangular data
+library(dplyr) #For Data manipulation
+library(tidyr) #For cleaning  of data
+library(stringr)
+library(ggplot2) #For visualizing data
+library(corrplot) #For providing a visual exploratory tool on correlation matrix.
+library(psych) # 
+library(AICcmodavg)
+library(scales) #For arranging scales in data visualizations.
+```
+*I. Data Overview and Cleaning*
+
+The data set is from the official open data web site of the Canadian government.
+It depicts numerous details of how CO2 emissions for vehicles can differ based on
+certain characteristics. The data was collected over a seven year period, and there
+are 7,385 vehicles in this data set. Different vehicles with all of the same 
+characteristics can appear more than once in the data set.
+
+First, import the data. Then, check for missing values in the data. No missing 
+values were found.
+
+```{r}
+data = read_csv("co2_emissions_canada.csv")
+
+glimpse(data) #Combination of str and summary function.
+
+#Explain (checking null values?)
+nacount <- function(x) {
+  data <- x %>%
+    summarize(across(.fns = ~sum(is.na(.)))) %>%
+    pivot_longer(cols = everything(), 
+                 names_to = "variables", 
+                 values_to = "na_count") %>%
+    filter(na_count > 0)
+}
+
+miss_vals  <- nacount(data)
+```
+
+After checking for missing values, more data cleaning steps are taken. These steps
+include the following: string manipulation and renaming variables.
+
+```{r}
+# Cleaning of data. Dealing with NULL values, Case-sensitive data.
+# Determine the makes of the cars driven in Canada
+unique(data$Make)
+
+data <- data %>%
+  mutate(Make = str_to_title(data$Make),
+         Make = str_replace(Make, "Bmw", "BMW"),
+         Make = str_replace(Make, "Fiat", "FIAT"),
+         Make = str_replace(Make, "Gmc", "GMC"),
+         Make = str_replace(Make, "Mini", "MINI"), 
+         Make = str_replace(Make, "Srt", "SRT")) 
+
+#Show all the distinct names in the column
+unique(data$`Vehicle Class`)
+
+#Explanation needed
+data <- data %>%
+  rename(Class = `Vehicle Class`) %>%
+  mutate(Class = str_to_title(data$`Vehicle Class`),
+         Class = str_replace(Class, "Van - Cargo", "Cargo Van"),
+         Class = str_replace(Class, "Pickup Truck - Small", "Small Pickup Truck"),
+         Class = str_replace(Class, "Suv - Small", "Small SUV"),
+         Class = str_replace(Class, "Station Wagon - Small", "Small Station Wagon"),
+         Class = str_replace(Class, "Van - Passenger", "Passenger Van"),
+         Class = str_replace(Class, "Suv - Standard", "Standard SUV"),
+         Class = str_replace(Class, "Pickup Truck - Standard", "Standard Pickup Truck"),
+         Class = str_replace(Class, "Station Wagon - Mid-Size", "Mid-Size Station Wagon"))
+
+data <- data %>%
+  rename(Engine_Size = `Engine Size(L)`,
+         Fuel_Type = `Fuel Type`,
+         Fuel_Consumption = `Fuel Consumption Comb (L/100 km)`,
+         Emissions = `CO2 Emissions(g/km)`)
+```
+
+*II. Data Exploration*
+
+The next step in this analysis is exploring the descriptive statistics of all the 
+numeric variables in the data set. A descriptive statistics table is created that 
+looks at both central tendency and dispersion. There are many noteworthy findings
+when looking at the descriptive statistics. For example, the average CO2 emissions 
+for all vehicles is 250.58 g/km. Finally, a frequency distribution table is created
+for the variable that represents the number cylinders in a vehicle's engine because
+it will be treated as a categorical variable for certain parts of this analysis.
+In the data, cars with four-cylinder engines are the most common.
+
+```{r}
+ds <- data %>%
+  select_if(is.numeric) %>%
+  select(-Cylinders) %>%
+  rename(`Engine Size` = Engine_Size, `Fuel Consumption` = Fuel_Consumption) %>%
+  describe() %>%
+  select(n, mean, sd, median, min, max) %>%
+  rename(N = n, Mean = mean,
+         `St. Dev.` = sd, Median = median, Min = min, 
+         Max = max)
+
+print(ds)
+
+fd <- data %>%
+  group_by(Cylinders) %>%
+  summarize(Frequency = n())
+
+print(fd)
+```
+
+All of the vehicles in the data are produced either in the United States, Europe
+or Asia. As stated before, the mean of CO2 emissions for all the vehicles is 
+250.8 g/km. Looking at the values of CO2 emissions in the data, if the variable
+has a value above 250.8 it is above average. Thus, when the value is below 250.8
+it is below average. Also, it is important to note that the variable for C02
+emissions has no values equal to the mean. A stacked bar chart is created that
+displays the number of vehicles in the data that are manufactured in the United States,
+Europe and Asia as well as the number of vehicles that have above and below average
+CO2 emissions for each manufacturing location.
+
+```{r}
+unique(data$Make)
+
+usa_make <- c("Buick", "Cadillac", "Chevrolet", "Chrysler", "Dodge", "Ford", 
+              "GMC", "Jeep", "Lincoln", "Ram", "SRT")
+
+eur_make <- c("Alfa Romeo", "Aston Martin", "Audi", "Bentley", "BMW","FIAT",
+              "Jaguar", "Lamborghini", "Land Rover", "Maserati", "Mercedes-Benz",
+              "MINI", "Porsche", "Rolls-Royce", "Smart", "Volkswagen", "Volvo")
+
+asia_make <- c("Acura", "Honda", "Hyundai", "Infiniti", "Kia", "Lexus", "Mazda",
+               "Mitsubishi", "Nissan", "Scion", "Subaru", "Toyota", "Genesis",
+               "Bugatti")
+
+data %>%
+  select(Emissions) %>%
+  filter(Emissions %in% c(250, 251))
+
+data <- data %>%
+  mutate(Location_Make = case_when(Make %in% usa_make ~ "USA",
+                                   Make %in% eur_make ~ "EUR",
+                                   Make %in% asia_make ~ "Asia"),
+         Emissions_Lvl = if_else(Emissions >= mean(Emissions), 
+                                 "Above Average",
+                                 "Below Average"))
+
+unique(data$Location_Make)
+
+loc_lvl_count <- data %>%
+  group_by(Location_Make, Emissions_Lvl) %>%
+  summarize(Frequency = n())
+
+loc_lvl_count <- loc_lvl_count %>%
+  mutate(Location_Make = factor(Location_Make, levels = c("Asia", "USA", "EUR")))
+
+ggplot(data = loc_lvl_count, 
+       mapping = aes(x = Location_Make, y = Frequency, fill = Emissions_Lvl,)) + 
+  geom_bar(position = "stack", stat = "identity", color = "black", width = 0.5) +
+  geom_text(aes(label = after_stat(y), group = Location_Make), 
+            stat = 'summary', fun = sum, vjust = -1, size = 3) +
+  scale_fill_manual(values = c("#1170aa", "#e03531")) + 
+  ylim(c(0,3000)) +
+  labs(title = "Number of Vehicles by Manufacturing Location and CO2 Emissions Level",
+       x = "Manufacturing Location", y = "Vehicles") +
+  guides(fill = guide_legend(title = "CO2 Emissions Level")) +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5, size = 10, face = "bold"),
+        axis.title = element_text(size = 8),
+        legend.title = element_text(size = 8),
+        legend.text = element_text(size = 8))
+```
+
+Now the average CO2 emissions for certain vehicle classes and their respective
+sizes will be examined. The three vehicle classes included are the following:
+pickup truck, station wagon and SUV. Then, the two vehicle sizes included are the
+following: mid-size and small. A grouped bar chart displays the average CO2 
+emissions for the various combinations of vehicle class and size. As anticipated,
+all the mid-size vehicles have larger CO2 emissions than their smaller counterparts.
+SUV was the vehicle class that has largest difference in average CO2 emissions
+between its two sizes.
+
+```{r}
+unique(data$Class)
+
+data %>%
+ group_by(Class) %>%
+ summarize(count = n())
+
+class_avgs <- data %>%
+  filter(Class == "Small Pickup Truck" | Class == "Standard Pickup Truck" |
+         Class == "Small Station Wagon" | Class == "Mid-Size Station Wagon" |
+         Class == "Small SUV" | Class == "Standard SUV") %>%
+  mutate(Class1 = case_when(Class == "Small Pickup Truck" | 
+                            Class == "Standard Pickup Truck" ~ "Pickup Truck",
+                            Class == "Small Station Wagon" |
+                            Class == "Mid-Size Station Wagon" ~ "Station Wagon",
+                            Class == "Small SUV" |
+                            Class == "Standard SUV" ~ "SUV"),
+         Class2 = case_when(Class == "Small Pickup Truck" | 
+                            Class == "Small Station Wagon" |
+                            Class == "Small SUV" ~ "Small",
+                            Class == "Standard Pickup Truck" |
+                            Class == "Mid-Size Station Wagon" |
+                            Class == "Standard SUV" ~ "Mid-Size")) %>%
+  group_by(Class1, Class2) %>%
+  summarize(avg_em = mean(Emissions))
+
+ggplot(data = class_avgs, mapping = aes(x = Class1, y = avg_em, fill = Class2)) +
+  geom_col(position = "dodge", color = "black", width = 0.5) +
+  ylim(0, 340) +
+  geom_text(aes(label = round(avg_em, 2)), position = position_dodge(0.5),
+            color = "black", vjust = -1, hjust = 0.5, size = 2.5) +
+  scale_fill_manual(values = c("#1170aa", "#e03531")) + 
+  labs(title = "Average CO2 Emissions of Vehicles by Class and Size",
+       x = "Class", y = "CO2 Emissions (g/km)") +
+  guides(fill = guide_legend("Size")) +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5, size = 10, face = "bold"),
+        axis.title = element_text(size = 8),
+        legend.title = element_text(size = 8),
+        legend.text = element_text(size = 8))
+```
+
+Next, the average fuel consumption for the different fuel types of the vehicles 
+will be explored. In the data, a vehicle can have five different values for its
+fuel type. Only one vehicle takes natural gas as its fuel type, while the most
+common fuel type for the vehicles is regular gasoline. A horizontal bar chart
+is created displaying the the average fuel consumption among the vehicles for all
+the categories of fuel type except for natural gas. The preliminary research
+findings back what the horizontal bar chart displays.
+
+```{r}
+unique(data$Fuel_Type)
+
+ft_avgs <- data %>%
+  filter(Fuel_Type != "N") %>%
+  group_by(Fuel_Type) %>%
+  summarize(avg_fc = round(mean(Fuel_Consumption), 2)) %>%
+  arrange(desc(avg_fc)) %>%
+  mutate(Fuel_Type = factor(Fuel_Type, levels = c("D", "X", "Z", "E"),
+                            labels = c("Diesel Fuel", "Regular Gasoline",
+                                       "Premium Gasoline", "Ethanol Fuel")))
+
+ggplot(data = ft_avgs, mapping = aes(x = Fuel_Type, y = avg_fc)) +
+  geom_col(color = "black", width = 0.5, fill = "#1170aa") +
+  ylim(0, 18) +
+  geom_text(aes(label = avg_fc), vjust = 0.5, hjust = -0.25, colour = "black", size = 3) +
+  coord_flip() +
+  labs(title ="Average Fuel Consumption by Fuel Type",
+       x = "Fuel Type", y = "Fuel Consumption (L/100 km)") +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5, size = 10, face = "bold"),
+        axis.title = element_text(size = 8))
+```
+
+Now the distributions for CO2 emissions and engine size will each be visualized
+and examined through creating kernel density plots.
+
+First, a kernel density plot is created for CO2 emissions. The mean of CO2
+emissions is 250.58, then the median is 246, and finally the mode is 242. The mode
+of this variable indicates that 242 is the most common value for a vehicle's CO2
+emissions with 85 vehicles in the data taking this particular value. As seen in
+the visualization, the distribution of CO2 emissions is quite normally distributed.
+This was anticipated when looking at the descriptive statistics because the mean,
+median and mode of the variable are all extremely close to one another.
+
+Second, a kernel density plot is created for engine size. The mean of engine
+size is 3.16, then the median is 3, and finally the mode is 2. The mean of this
+variable indicates that the average engine size for the vehicles in the data is 
+3.16, while the median displays that the middle point of the distribution for 
+engine size is 3.This middle point in the distribution is also known as the second
+quartile, and it indicates that fifty percent of the values for engine size are
+less than or equal to 3. The distribution of the variable engine displays a right
+skew. This was anticipated when looking at the descriptive statistics because the
+mean for engine size is larger than its median. Finally, the distribution of this
+variable appears to be multimodal.
+
+```{r}
+mode1 <- data %>%
+  group_by(Emissions) %>%
+  count() %>%
+  arrange(desc(n)) %>%
+  head(1)
+
+ggplot(data = data, mapping = aes(x = Emissions)) +
+  geom_density(fill = "#1170aa", alpha = 0.7) +
+  scale_y_continuous(labels = function(x) paste0(x * 100, "%")) +
+  labs(title = "Distribution of CO2 Emissions", x = "CO2 Emissions (g/km)", y = "Density") +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5, size = 10, face = "bold"),
+        axis.title = element_text(size = 8))
+
+mode2 <- data %>%
+  group_by(Engine_Size) %>%
+  count() %>%
+  arrange(desc(n)) %>%
+  head(1)
+
+ggplot(data = data, mapping = aes(x = Engine_Size)) +
+  geom_density(fill = "#e03531", alpha = 0.7) +
+  scale_y_continuous(labels = function(x) paste0(x * 100, "%")) +
+  labs(title = "Distribution of Engine Size", x = "Engine Size (L)", y = "Density") +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5, size = 10, face = "bold"),
+        axis.title = element_text(size = 8))
+```
+
+The correlation between the numeric variables in the data are now examined. 
+A correlation matrix is created to visually display this. The variable 
+representing the number of cylinders in a vehicle's engine will be included in this visualization. All of the numeric variables have a high positive correlation
+(>80%) with CO2 emissions. The relationship between the engine size of a vehicle
+and its C02 emissions will be further investigated in this analysis. The correlation coefficient of these variables indicates that as the engine size of a vehicle
+increases there is a high likelihood that its level of CO2 emissions will increase
+as well.
+
+```{r}
+corr_data <- data %>%
+  select_if(is.numeric)
+
+cm <- cor(corr_data)
+
+colnames(cm) <- c("Engine Size", "Cylinders", "Fuel Consumption", "Emissions")
+
+corrplot.mixed(cm, lower.col = "black", number.cex = 0.7, tl.cex = 0.5, 
+               mar = c(0, 0, 0.75, 3.5)) 
+mtext("Correlation Matrix of Numeric Variables", at = 2.5, line = 1.2, 
+      cex = 0.8, font = 2)
+```
+
+Next, the relationship between the engine size of a vehicle and its C02 emissions is
+explored further in another data visualization. A scatter plot is created to display the 
+relationship between these two variables. Engine size is on the x-axis, while CO2
+emissions is on the y-axis. The scatter plot displays the visual representation of
+the strong positive correlation between the two variables. There is a linear 
+regression line in the scatter plot that displays the line of best fit for the data.
+Overall, this linear regression line in the scatter plot illustrates that the 
+engine size of a vehicle is an excellent predictor for the level of CO2 emissions
+in vehicles.
+
+```{r warning = FALSE, message = FALSE}
+ggplot(data = data, mapping = aes(x = Engine_Size, y = Emissions)) +
+  geom_point(color = "#1170aa", size = 0.6) +
+  geom_smooth(method = lm, se = FALSE, col = "black", size = 0.5) +
+  labs(title = "CO2 Emissions vs. Engine Size",
+       x = "Engine Size (L)", y = "CO2 Emissions (g/km)") +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5, size = 10, face = "bold"),
+        axis.title = element_text(size = 8))
+```
+
+III. Statistical Modeling
+
+Four ANOVA models are built for this analysis. CO2 emissions is the dependent
+variable in all four of the models. The models are evaluated in order to see
+which one performs the best.
+
+First, a one-way ANOVA is performed. The model displays CO2 Emissions as a 
+function of the number of cylinders in a vehicle's engine. The p-value of the 
+variable representing the number of cylinders in a vehicle's engine is extremely
+low (p < 0.001), thus it appears that the number of cylinders in a vehicle's 
+engine has a real impact on the CO2 emissions of the vehicle. The R-squared value
+for this model is 70%.
+
+Second, another one-way ANOVA is performed. The model displays CO2 Emissions as 
+a function of the fuel type of a vehicle. The p-value of the variable representing
+the fuel type of a vehicle is extremely low (p < 0.001), thus it appears that the
+the fuel type of a vehicle has a real impact on its CO2 emissions. The R-squared
+value for this model is 7.5%. When comparing both of the one-way ANOVA models, it
+is clear that cylinders has more explanatory power than fuel type by a large margin.
+
+Third, a two-way ANOVA is performed. The model displays CO2 Emissions as a function
+of both the number of cylinders in a vehicle's engine and the fuel type of a vehicle. 
+Having both of these variables in the model improves the model's performance because
+the residual variance of this model is lower than the previous two models. Also,
+both cylinders and fuel type are statistically significant (p-values < 0.001).
+
+Fourth, another two-way ANOVA is performed. The model displays CO2 Emission as a
+function of the interaction between the number of cylinders in a vehicle's engine
+and the fuel type of a vehicle. This is the best performing model because it has
+the smallest AIC of all the models.
+
+```{r}
+data <- data %>%
+  mutate(Cylinders = as.factor(Cylinders),
+         Fuel_Type = as.factor(Fuel_Type))
+
+levels(data$Cylinders)
+
+levels(data$Fuel_Type)
+
+options(scipen = 999)
+
+owa1 <- aov(Emissions ~ Cylinders, data = data)
+summary(owa1)
+rsquared1 <- 17868910 / (17868910 + 7411939)
+
+owa2 <- aov(Emissions ~ Fuel_Type, data = data)
+summary(owa2)
+rsquared2 <- 1888452 / (1888452 + 23392397) 
+
+twa1 <- aov(Emissions ~ Cylinders + Fuel_Type, data = data)
+summary(twa1)
+
+twa2 <- aov(Emissions ~ Cylinders * Fuel_Type, data = data)
+summary(twa2)
+
+model_set <- list(owa1, owa2, twa1, twa2)
+model_names <- c("owa1", "owa2", "twa1", "twa2")
+
+aictab(model_set, modnames = model_names)
+```
