@@ -28,15 +28,15 @@ transportation sector.
 
 These are the packages used in this data analysis.
 ```{r}
-library(readr) #For reading rectangular data
-library(dplyr) #For Data manipulation
-library(tidyr) #For cleaning  of data
+library(readr)
+library(dplyr)
+library(tidyr)
 library(stringr)
-library(ggplot2) #For visualizing data
-library(corrplot) #For providing a visual exploratory tool on correlation matrix.
-library(psych) # 
+library(ggplot2)
+library(corrplot)
+library(psych)
 library(AICcmodavg)
-library(scales) #For arranging scales in data visualizations.
+library(scales)
 ```
 *I. Data Overview and Cleaning*
 
