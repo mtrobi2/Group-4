@@ -132,7 +132,7 @@ cleaning was to enhance the quality and integrity of the data for the
 next steps of the analysis.
 
 ```{r}
-data = read_csv("data.csv")
+data = read_csv("co2_emissions_canada.csv")
 
 glimpse(data)
 
