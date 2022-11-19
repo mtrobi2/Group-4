@@ -1,0 +1,1201 @@
+---
+title: "Statistical Analysis of CO2 Emissions From Vehicles"
+author: "Alex Zakrzeski, Aditya Nayak, Purvi Jain, Tracie Robinson, and Ale Meja"
+output:
+  html_document:
+    code_folding: hide
+    number_sections: false
+    toc: yes
+    toc_depth: 3
+    toc_float: yes
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+```{=html}
+<style type = "text/css">
+body{ /* Normal  */
+      font-size: 15px;
+}
+td {  /* Table  */
+  font-size: 15px;
+}
+h1.title {
+  font-size: 22px;
+  color: Black;
+}
+h4.author {
+font-size: 22px;
+  color: Black;
+}
+h2 { /* Header 2 */
+    font-size: 18px;
+  color: DarkRed;
+}
+h3 { /* Header 3 */
+  font-size: 18px;
+  font-family: "Times New Roman", Times, serif;
+  color: DarkBlue;
+}
+code.r{ /* Code block */
+    font-size: 12px;
+}
+pre { /* Code block - determines code spacing between lines */
+    font-size: 12px;
+}
+</style>
+```
+## I. Introduction
+
+### Background Information
+
+Over the past three decades, climate change has been a subject of global
+interest. Researchers have discovered numerous factors that contribute
+to climate change, with CO2 emissions from vehicles being a noteworthy
+instance. This year alone, experts forecast that CO2 emissions from
+vehicles will exceed three billion metric tons. CO2 emissions from
+vehicles are extremely harmful because they are a driving force for
+increasing temperatures and rising sea levels. A solution to lessen the
+adverse effects of CO2 emissions from vehicles is for manufacturers to
+produce vehicles that emit relatively low levels of CO2 emissions. This
+manufacturer initiative has been ongoing for years, with Toyota
+releasing the world's first mass-produced hybrid vehicle in 1997. Still,
+vehicle manufacturers need to implement more initiatives to decelerate
+climate change. Finally, there is a significant urgency for new
+strategies to be developed to further educate the public on how CO2
+emissions from vehicles are accelerating climate change.
+
+### Data Overview
+
+For this analysis, a data set from the Canadian government's official
+open data website was used. The data were collected over a seven-year
+period and comprise 7,385 vehicles manufactured on three continents:
+Asia, Europe, and North America. There are nine variables in the data
+set. Six of these variables are categorical; the other three are
+numeric. Below is a summary of the variables used in this analysis.
+
+-   Categorical Variables
+    -   *Number of Cylinders:* The number of cylinders in the engine of
+        a vehicle
+    -   *Fuel Type:* The fuel type of the vehicle
+    -   *Make:* The company that manufactured the vehicle
+    -   *Model:* The model of the vehicle
+    -   *Transmission:* The type of transmission for the vehicle
+    -   *Vehicle Class:* The class of the vehicle by utility, capacity,
+        and weight
+-   Quantitative Variables
+    -   *CO2 Emissions:* The tailpipe carbon dioxide emissions in grams
+        per kilometer
+    -   *Engine Size:* The engine's displacement in liters
+    -   *Fuel Consumption:* The combined city/highway fuel consumption
+        in liters per 100 km
+
+### Research Question and Design
+
+The research question for this analysis was: What is the best predictor
+or combination of predictors for high CO2 emissions in vehicles? The
+dependent variable in the research was "CO2 Emissions," and the
+remaining eight variables were independent variables. The research
+design encompassed numerous statistical techniques, including
+descriptive statistics, correlation tests, visualization, ANOVA, linear
+regression, and K-Nearest Neighbors. Overall, the findings offer a
+clearer understanding of which characteristics of vehicles are the most
+responsible for high CO2 emissions, therefore making individuals more
+likely to choose to drive eco-friendly vehicles to slow climate change.
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(warning = F, results = "hide", message = F)
+```
+
+```{r, include = FALSE}
+library(readr)
+library(dplyr)
+library(tidyr)
+library(stringr)
+library(ggplot2)
+library(psych)
+library(tibble)
+library(gt)
+library(corrplot)
+library(AICcmodavg)
+library(car)
+library(gtsummary)
+library(margins)
+library(pscl)
+library(caret)
+```
+
+## II. Data Preparation
+
+### Data Cleaning
+
+Prior to the exploratory data analysis, several data-cleaning steps were
+taken, which included checking for missing values, manipulating strings,
+renaming variables, and converting data types. The purpose of the data
+cleaning was to enhance the quality and integrity of the data for the
+next steps of the analysis.
+
+```{r}
+data = read_csv("co2_emissions_canada.csv")
+
+glimpse(data)
+
+nacount <- function(x) {
+  data <- x %>%
+    summarize(across(.fns = ~sum(is.na(.)))) %>%
+    pivot_longer(cols = everything(), 
+                 names_to = "variables", 
+                 values_to = "na_count") %>%
+    filter(na_count > 0)
+}
+
+miss_vals  <- nacount(data)
+
+unique(data$Make)
+
+data <- data %>%
+  mutate(Make = str_to_title(data$Make),
+         Make = str_replace(Make, "Bmw", "BMW"),
+         Make = str_replace(Make, "Fiat", "FIAT"),
+         Make = str_replace(Make, "Gmc", "GMC"),
+         Make = str_replace(Make, "Mini", "MINI"), 
+         Make = str_replace(Make, "Srt", "SRT")) 
+
+unique(data$`Vehicle Class`)
+
+data <- data %>%
+  rename(Class = `Vehicle Class`) %>%
+  mutate(Class = str_to_title(data$`Vehicle Class`),
+         Class = str_replace(Class, "Van - Cargo", "Cargo Van"),
+         Class = str_replace(Class, "Pickup Truck - Small", "Small Pickup Truck"),
+         Class = str_replace(Class, "Suv - Small", "Small SUV"),
+         Class = str_replace(Class, "Station Wagon - Small", "Small Station Wagon"),
+         Class = str_replace(Class, "Van - Passenger", "Passenger Van"),
+         Class = str_replace(Class, "Suv - Standard", "Standard SUV"),
+         Class = str_replace(Class, "Pickup Truck - Standard", "Standard Pickup Truck"),
+         Class = str_replace(Class, "Station Wagon - Mid-Size", "Mid-Size Station Wagon"))
+
+data <- data %>%
+  rename(Engine_Size = `Engine Size(L)`,
+         Fuel_Type = `Fuel Type`,
+         Fuel_Consumption = `Fuel Consumption Comb (L/100 km)`,
+         Emissions = `CO2 Emissions(g/km)`) %>%
+  mutate(Cylinders = factor(Cylinders))
+```
+
+### Data Wrangling
+
+After the data was cleaned, several data-wrangling steps were taken,
+which included creating new variables, grouping data, and aggregating
+data. The purpose of data wrangling was to make the data more efficient
+and insightful.
+
+```{r}
+unique(data$Make)
+
+usa_make <- c("Buick", "Cadillac", "Chevrolet", "Chrysler", "Dodge", "Ford", 
+              "GMC", "Jeep", "Lincoln", "Ram", "SRT")
+
+eur_make <- c("Alfa Romeo", "Aston Martin", "Audi", "Bentley", "BMW","FIAT",
+              "Jaguar", "Lamborghini", "Land Rover", "Maserati", "Mercedes-Benz",
+              "MINI", "Porsche", "Rolls-Royce", "Smart", "Volkswagen", "Volvo")
+
+asia_make <- c("Acura", "Honda", "Hyundai", "Infiniti", "Kia", "Lexus", "Mazda",
+               "Mitsubishi", "Nissan", "Scion", "Subaru", "Toyota", "Genesis",
+               "Bugatti")
+
+data %>%
+  select(Emissions) %>%
+  filter(Emissions %in% c(250, 251))
+
+data <- data %>%
+  mutate(Location_Make = case_when(Make %in% usa_make ~ "USA",
+                                   Make %in% eur_make ~ "EUR",
+                                   Make %in% asia_make ~ "Asia"),
+         Emissions_Lvl = if_else(Emissions >= mean(Emissions), 
+                                 "Above Average",
+                                 "Below Average"))
+
+unique(data$Location_Make)
+
+loc_lvl_count <- data %>%
+  group_by(Location_Make, Emissions_Lvl) %>%
+  summarize(Frequency = n())
+
+loc_lvl_count <- loc_lvl_count %>%
+  mutate(Location_Make = factor(Location_Make, levels = c("Asia", "USA", "EUR")))
+
+unique(data$Class)
+
+data %>%
+ group_by(Class) %>%
+ summarize(count = n())
+
+class_avgs <- data %>%
+  filter(Class == "Small Pickup Truck" | Class == "Standard Pickup Truck" |
+         Class == "Small Station Wagon" | Class == "Mid-Size Station Wagon" |
+         Class == "Small SUV" | Class == "Standard SUV") %>%
+  mutate(Class1 = case_when(Class == "Small Pickup Truck" | 
+                            Class == "Standard Pickup Truck" ~ "Pickup Truck",
+                            Class == "Small Station Wagon" |
+                            Class == "Mid-Size Station Wagon" ~ "Station Wagon",
+                            Class == "Small SUV" |
+                            Class == "Standard SUV" ~ "SUV"),
+         Class2 = case_when(Class == "Small Pickup Truck" | 
+                            Class == "Small Station Wagon" |
+                            Class == "Small SUV" ~ "Small",
+                            Class == "Standard Pickup Truck" |
+                            Class == "Mid-Size Station Wagon" |
+                            Class == "Standard SUV" ~ "Mid-Size"),
+         Class2 = factor(Class2, levels = c("Small", "Mid-Size"))) %>%
+  group_by(Class1, Class2) %>%
+  summarize(avg_em = mean(Emissions))
+
+unique(data$Fuel_Type)
+
+ft_avgs <- data %>%
+  filter(Fuel_Type != "N") %>%
+  group_by(Fuel_Type) %>%
+  summarize(avg_fc = round(mean(Fuel_Consumption), 2)) %>%
+  arrange(desc(avg_fc)) %>%
+  mutate(Fuel_Type = factor(Fuel_Type, levels = c("D", "X", "Z", "E"),
+                            labels = c("Diesel Fuel", "Regular Gasoline",
+                                       "Premium Gasoline", "Ethanol Fuel")))
+
+corr_data1 <- data %>%
+  select_if(is.numeric)
+
+cm <- cor(corr_data1)
+
+colnames(cm) <- c("Engine Size", "Fuel Consumption", "Emissions")
+
+corr_data2 <- data %>%
+  mutate(Cylinders = as.numeric(Cylinders),
+         Emissions_Lvl = if_else(Emissions_Lvl == "Above Average", 1 , 0)) %>%
+  select(Emissions, Cylinders, Emissions_Lvl)
+
+mode1 <- data %>%
+  group_by(Emissions) %>%
+  count() %>%
+  arrange(desc(n)) %>%
+  head(1)
+
+mode2 <- data %>%
+  group_by(Engine_Size) %>%
+  count() %>%
+  arrange(desc(n)) %>%
+  head(1)
+
+emissions_outliers <- data %>%
+  select(Emissions) %>%
+  filter(Emissions > quantile(Emissions, 0.75) + 1.5 * IQR(Emissions) | 
+         Emissions < quantile(Emissions, 0.25) - 1.5 * IQR(Emissions))
+```
+
+## III. Data Exploration
+
+### Descriptive Statistics
+
+The first step in this exploratory data analysis was to analyze the
+descriptive statistics of the numeric variables that measure central
+tendency and dispersion. For this analysis, the descriptive statistics
+of the variables Engine Size and CO2 Emissions are especially noteworthy
+and will be examined in further detail. The mean of CO2 emissions was
+250.58, the median was 246, and the mode was 242. The mode of this
+variable indicates that 242 is the most common value for a vehicle's CO2
+emissions, with 85 vehicles in the data taking this value. The mean of
+Engine Size was 3.16, the median was 3, and the mode was 2. The mean of
+this variable indicates that the average engine size for the vehicles in
+the data is 3.16, whereas the median displays that the middle point of
+the distribution for engine size is 3. This middle point in the
+distribution is also known as the second quartile, indicating that 50%
+of the values for engine size are less than or equal to 3. A descriptive
+statistics table for the numeric variables is presented below.
+
+```{r, results = "asis", fig.align = "center"}
+data %>%
+  select_if(is.numeric) %>%
+  rename(`Engine Size` = Engine_Size, `Fuel Consumption` = Fuel_Consumption,
+         `CO2 Emissions` = Emissions) %>%
+  describe() %>%
+  select(n, mean, sd, median, min, max) %>%
+  rename(N = n, Mean = mean, `St. Dev.` = sd, Median = median, Min = min, Max = max) %>%
+  as_tibble(rownames = "Variable") %>%
+gt() %>%
+  cols_label(Variable = md("**Variable**"), N = md("**N**"), 
+             Mean = md("**Mean**"),`St. Dev.` = md("**St. Dev.**"), 
+             Median = md("**Median**"), Min = md("**Min**"), Max = md("**Max**")) %>%
+  fmt_number(N, decimals = 0, sep_mark = ",") %>%
+  fmt_number(Mean, decimals = 2) %>%
+  fmt_number(`St. Dev.`, decimals = 2) %>%
+  fmt_number(Median, drop_trailing_zeros = TRUE) %>%
+  fmt_number(Max, drop_trailing_zeros = TRUE) %>%
+  cols_align("center") 
+```
+
+### Stacked Bar Chart
+
+All the vehicles in the data were produced in the United States, Europe,
+or Asia. The stacked bar chart below displays the number of vehicles in
+the data and the number of vehicles that have above- and below-average
+CO2 emissions for each manufacturing location. The chart shows that
+Europe manufactured the most vehicles, followed closely by the US, then
+Asia. However, Asia is the manufacturing location with the largest
+portion of vehicles that have below-average CO2 emissions levels. This
+visualization is presented below.
+
+```{r, fig.dim = c(5.75, 3.75), fig.align = "center"}
+ggplot(data = loc_lvl_count, 
+       mapping = aes(x = Location_Make, y = Frequency, fill = Emissions_Lvl,)) + 
+  geom_bar(position = "stack", stat = "identity", color = "black", width = 0.5) +
+  geom_text(aes(label = after_stat(y), group = Location_Make), 
+            stat = 'summary', fun = sum, vjust = -1, size = 2.75) +
+  scale_fill_manual(values = c("#c0c2c4", "#005288")) + 
+  ylim(c(0,3000)) +
+  labs(title = "Vehicles by Manufacturing Location and CO2 Emissions Level",
+       x = "Manufacturing Location", y = "Vehicles") +
+  guides(fill = guide_legend(title = "")) +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5, size = 11),
+        axis.title = element_text(size = 10),
+        axis.text.x = element_text(size = 9),
+        axis.text.y = element_text(size = 9),
+        legend.text = element_text(size = 8),
+        legend.position = "bottom",
+        legend.spacing.x = unit(0.25, "cm"))
+```
+
+### Grouped Bar Chart
+
+The average CO2 emissions for certain vehicle classes (i.e., pickup
+truck, station wagon, and SUV) and their respective sizes (mid-size and
+small) was examined. A grouped bar chart displayed below shows the
+average CO2 emissions for various combinations of vehicle class and
+size. As anticipated, all the mid-size vehicles have larger CO2
+emissions than their smaller counterparts. SUV was the vehicle class
+with the largest difference in average CO2 emissions between its two
+sizes.
+
+```{r, fig.dim = c(5.75, 3.75), fig.align = "center"}
+ggplot(data = class_avgs, mapping = aes(x = Class1, y = avg_em, fill = Class2)) +
+  geom_col(position = "dodge", color = "black", width = 0.5) +
+  ylim(0, 340) +
+  geom_text(aes(label = round(avg_em, 2)), position = position_dodge(0.5),
+            color = "black", vjust = -1, hjust = 0.5, size = 2.75) +
+  scale_fill_manual(values = c("#c0c2c4", "#005288")) + 
+  labs(title = "Average CO2 Emissions for Vehicles by Class and Size",
+       x = "Class", y = "CO2 Emissions (g/km)") +
+  guides(fill = guide_legend("")) +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5, size = 11),
+        axis.title = element_text(size = 10),
+        axis.text.x = element_text(size = 9),
+        axis.text.y = element_text(size = 9),
+        legend.text = element_text(size = 8),
+        legend.position = "bottom",
+        legend.spacing.x = unit(0.25, "cm"))
+```
+
+### Horizontal Bar Chart
+
+In the data, a vehicle can have five different values for its fuel type.
+Only one vehicle took natural gas; the most common fuel type was regular
+gasoline. A horizontal bar chart to display the average fuel consumption
+among the vehicles for the categories of fuel type except for natural
+gas was created. Ethanol fuel had the highest average fuel consumption,
+and diesel fuel had the lowest average. The horizontal bar chart
+supports the preliminary research findings and is displayed below.
+
+```{r, fig.dim = c(5.75, 3.75), fig.align = "center"}
+ggplot(data = ft_avgs, mapping = aes(x = Fuel_Type, y = avg_fc)) +
+  geom_col(color = "black", width = 0.5, fill = "#005288") +
+  ylim(0, 18) +
+  geom_text(aes(label = avg_fc), vjust = 0.5, hjust = -0.25, colour = "black", size = 2.75) +
+  coord_flip() +
+  labs(title ="Average Fuel Consumption by Fuel Type",
+       x = "Fuel Type", y = "Fuel Consumption (L/100 km)") +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5, size = 11),
+        axis.title = element_text(size = 10),
+        axis.text.x = element_text(size = 9),
+        axis.text.y = element_text(size = 9))
+```
+
+### Correlation Matrix
+
+The Pearson correlation coefficients between the numeric variables in
+the data were generated, which shows the linear strength of the
+relationship between two continuous variables. A correlation matrix was
+created to visually display this. All the numeric variables have a high
+positive correlation (\> 80%) with CO2 emissions. The analysis will
+further investigate the relationship between a vehicle's engine size and
+its C02 emissions in this analysis. The correlation coefficient of these
+variables indicates that as the engine size of a vehicle increases, its
+level of CO2 emissions increases as well. This correlation matrix is
+displayed below. Because Cylinders is an ordinal variable, the Spearman
+rank correlation coefficient between Cylinders and CO2 Emissions was
+generated. This correlation test measured the level of monotonicity
+between the variables rather than the linearity. The correlation was
+0.85, which indicates a strong nonlinear relationship.
+
+```{r, fig.dim = c(8.5, 3.75), fig.align = "right"}
+sp_cor <- cor(corr_data2$Cylinders, corr_data2$Emissions, method = "spearman")
+corrplot.mixed(cm, lower.col = "black", number.cex = 0.6, tl.cex = 0.7, 
+               mar = c(0, 0, 0.75, 3.5)) 
+```
+
+### Scatter Plot
+
+Next, the analysis explored the relationship between a vehicle's engine
+size and its C02 emissions in another data visualization, a scatter
+plot. Engine Size is on the x-axis, and CO2 Emissions is on the y-axis.
+The scatter plot displays a strong positive correlation. The linear
+regression line displays the line of best fit for the data. Overall,
+this linear regression line illustrates that the engine size of vehicles
+is an excellent predictor of CO2 emissions. This scatter plot is
+displayed below.
+
+```{r, fig.dim = c(5.75, 3.75), fig.align = "center"}
+ggplot(data = data, mapping = aes(x = Engine_Size, y = Emissions)) +
+  geom_point(color = "#005288", size = 0.6) +
+  geom_smooth(method = lm, se = FALSE, col = "black", size = 0.5) +
+  labs(title = "CO2 Emissions vs. Engine Size",
+       x = "Engine Size (L)", y = "CO2 Emissions (g/km)") +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5, size = 11),
+        axis.title = element_text(size = 10),
+        axis.text.x = element_text(size = 9),
+        axis.text.y = element_text(size = 9))
+```
+
+### Density Plots
+
+The distribution of CO2 emissions is examined by creating a kernel
+density plot. The vertical line displays the median value for CO2
+Emissions. As seen in the plot, the CO2 Emissions variable is normally
+distributed. This was anticipated because the variable's mean, median,
+and mode are all extremely close. This density plot is displayed below.
+
+```{r, fig.dim = c(5.75, 3.75), fig.align = "center"}
+ggplot(data = data, mapping = aes(x = Emissions)) +
+  geom_density(fill = "#c0c2c4", alpha = 0.7) +
+  geom_vline(xintercept = median(data$Emissions), linetype = "dotted") +
+  scale_y_continuous(labels = function(x) paste0(x * 100, "%")) +
+  labs(title = "Distribution of CO2 Emissions", x = "CO2 Emissions (g/km)", y = "Density") +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5, size = 11),
+        axis.title = element_text(size = 10),
+        axis.text.x = element_text(size = 9),
+        axis.text.y = element_text(size = 9))
+```
+
+The distribution of Engine Size is examined by creating a kernel density
+plot. The vertical line displays the median value for Engine Size. The
+distribution displays a right skew. This was anticipated this because
+the mean of the Engine Size is larger than its median. Finally, the
+distribution appears to be multimodal. This density plot is displayed
+below.
+
+```{r, fig.dim = c(5.75, 3.75), fig.align = "center"}
+ggplot(data = data, mapping = aes(x = Engine_Size)) +
+  geom_density(fill = "#005288", alpha = 0.7) +
+  geom_vline(xintercept = median(data$Engine_Size), linetype = "dotted") +
+  scale_y_continuous(labels = function(x) paste0(x * 100, "%")) +
+  labs(title = "Distribution of Engine Size", x = "Engine Size (L)", y = "Density") +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5, size = 11),
+        axis.title = element_text(size = 10),
+        axis.text.x = element_text(size = 9),
+        axis.text.y = element_text(size = 9))
+```
+
+### Box Plot
+
+Upon visual inspection of the density plot of CO2 Emissions, outliers
+likely exist in the distribution's upper tail. A box plot is created to
+display the variable's distribution. The interquartile range method
+displays all 80 of the outliers for CO2 emissions that surpass the upper
+whisker. This box plot is displayed below.
+
+```{r, fig.dim = c(5.75, 3.75), fig.align = "center"}
+ggplot(data = data, mapping = aes(x = "", y = Emissions)) +
+  geom_boxplot(outlier.shape = NA) +
+  geom_jitter(data = emissions_outliers, color = "#005288", height = 0, width = 0.1) +
+   labs(title = "Distribution of CO2 Emissions",
+        x = "Vehicles", y = "CO2 Emissions (g/km)") +
+  theme_bw() +
+   theme(plot.title = element_text(hjust = 0.5, size = 11),
+        axis.title = element_text(size = 10),
+        axis.text.x = element_text(size = 9),
+        axis.text.y = element_text(size = 9))
+```
+
+## IV. Statistical Modeling
+
+### ANOVA
+
+Three ANOVA models are built. Model 1, the first ANOVA model, is a
+two-way ANOVA that displays CO2 Emissions as a function of Number of
+Cylinders and Fuel Type. At the 1% significance level, Number of
+Cylinders is statistically significant. Then, at the 5% significance
+level, Fuel Type is statistically significant. The model's residual
+variance is 7,400,174. Model 2, the second ANOVA model, is a two-way
+ANOVA that displays CO2 Emissions as a function of the interaction
+between Number of Cylinders and Fuel Type. At the 1% significance level,
+Number of Cylinders and the interaction between Number of Cylinders and
+Fuel Type are statistically significant. At the 5% significance level,
+Fuel Type is statistically significant. The model's residual variance is
+6,995,135, which is lower than that of the first ANOVA model.
+
+The AIC for both models is generated. The model with the smallest AIC
+will be the best-performing model. The second model, a two-way ANOVA
+with the interaction term, has the lower AIC; thus, it is the best fit.
+Now it will be checked whether Model 2 fits the assumption of
+homoscedasticity. This assumption is met when the variance of the
+residuals in the model is constant. A residual versus fitted plot is
+generated from Model 2 to visually inspect this. After further
+consideration, the assumption of homoscedasticity is not met, and the
+residuals are heteroscedastic. The necessary steps will be taken to make
+the residuals of the ANOVA model homoscedastic. The residual vs. fitted
+plot is displayed below.
+
+```{r, fig.dim = c(5.75, 3.75), fig.align = "center"}
+data <- data %>%
+  mutate(Cylinders = as.factor(Cylinders),
+         Fuel_Type = as.factor(Fuel_Type))
+
+levels(data$Cylinders)
+
+levels(data$Fuel_Type)
+
+twa1 <- aov(Emissions ~ Cylinders + Fuel_Type, data = data)
+
+summary(twa1)
+
+twa2 <- aov(Emissions ~ Cylinders * Fuel_Type, data = data)
+
+summary(twa2)
+
+model_set <- list(twa1, twa2)
+model_names <- c("twa1", "twa2")
+
+aictab(model_set, modnames = model_names)
+
+model_frame1 <- fortify(twa2)
+
+smoothed1 <- as.data.frame(with(model_frame1, lowess(x = .fitted, y = .resid)))
+
+ggplot(data = twa2, aes(x = .fitted, y = .resid)) +
+  geom_point(color = "#005288", size = 0.6) +
+  geom_hline(yintercept = 0, color = "grey", linetype = "dashed") +
+  geom_path(data = smoothed1, aes(x = x, y = y), col = "black") +
+  labs(title = 
+         "Residual vs. Fitted Plot for ANOVA: Model 2",
+       x = "Fitted Values", y = "Residuals") +
+  theme_bw() +
+   theme(plot.title = element_text(hjust = 0.5, size = 11),
+        axis.title = element_text(size = 10),
+        axis.text.x = element_text(size = 9),
+        axis.text.y = element_text(size = 9))
+```
+
+In the data exploration, in the previous section of this statistical
+analysis, a box plot was created to display the distribution of CO2
+Emissions for the vehicles. It is apparent in this visualization that
+there are numerous outliers when looking at the distribution of CO2
+Emissions. These outliers can be seen outside the upper whisker of the
+box plot. The interquartile range method removes these outliers from the
+distribution of CO2 Emissions. Ultimately, 80 outliers are removed from
+the distribution of CO2 Emissions, and as a result, all the observations
+that contain outliers are dropped. Model 3, the third ANOVA model, is a
+two-way ANOVA model with the same dependent variable and independent
+variables from Model 2, but the outliers from CO2 Emissions are
+excluded. At the 1% significance level, Number of Cylinders, Fuel Type,
+and the interaction between Number of Cylinders and Fuel Type are all
+statistically significant. The model's residual variance is 6,245,676. A
+residual versus fitted plot is generated from this model, which displays
+that the residuals for this model are homoscedastic. Now, this
+statistical assumption for ANOVA is met. The residual vs. fitted plot is
+displayed below.
+
+```{r, fig.dim = c(5.75, 3.75), fig.align = "center"}
+data <- data %>%
+  mutate(Co2Em_Outliers = if_else(
+    Emissions > quantile(Emissions, 0.75) + 1.5 * IQR(Emissions) | 
+    Emissions < quantile(Emissions, 0.25) - 1.5 * IQR(Emissions), 1, 0)) %>%
+  filter(Co2Em_Outliers == 0) %>%
+  select(-Co2Em_Outliers)
+
+twa3 <- aov(Emissions ~ Cylinders * Fuel_Type, data = data)
+
+summary(twa3)
+
+model_frame2 <- fortify(twa3)
+
+smoothed2 <- as.data.frame(with(model_frame2, lowess(x = .fitted, y = .resid)))
+
+ggplot(data = twa3, aes(x = .fitted, y = .resid)) +
+  geom_point(color = "#005288", size = 0.6) +
+  geom_hline(yintercept = 0, color = "grey", linetype = "dashed") +
+  geom_path(data = smoothed2, aes(x = x, y = y), col = "black") +
+  labs(title = "Residual vs. Fitted Plot for ANOVA: Model 3",
+       x = "Fitted Values", y = "Residuals") +
+  theme_bw() +
+   theme(plot.title = element_text(hjust = 0.5, size = 11),
+        axis.title = element_text(size = 10),
+        axis.text.x = element_text(size = 9),
+        axis.text.y = element_text(size = 9))
+```
+
+Finally, a histogram is produced below to display the distribution of
+the residuals for Model 3. The residuals follow a normal distribution
+when looking at the histogram.
+
+```{r, fig.dim = c(5.75, 3.75), fig.align = "center"}
+ggplot(mapping = aes(x = residuals(twa3))) +
+  geom_histogram(color = "black", fill = "#c0c2c4", bins = 20) +
+  labs(title = "Distribution of Residuals for ANOVA: Model 3", 
+       x = "Residuals", y = "Frequency") +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5, size = 11),
+        axis.title = element_text(size = 10),
+        axis.text.x = element_text(size = 9),
+        axis.text.y = element_text(size = 9))
+```
+
+The ANOVA outputs for Model 3 are displayed below.
+
+```{r, results = "asis", fig.align = "center"}
+anova_table <- data.frame(
+  Variable = c("Number of Cylinders", "Fuel Type", 
+               "Number of Cylinders : Fuel Type", "Residuals"),
+  Df = c("6", "4", "7", "7,287"),
+  `Sum Sq` = c("15,746,174", "16,437", "356,508", "6,245,676"),
+  `Mean Sq` = c("2,624,362", "4,109", "50,930", "857"),
+  `F-Value` = c("3,061.92", "4.80", "59.42", "-"),
+  `P-Value` = c("<0.001", "<0.001", "<0.001", "-"))
+
+gt(anova_table) %>%
+  cols_label(Variable = md("**Variable**"), Df = md("**Df**"), `Sum.Sq` = md("**Sum Sq**"), 
+             `Mean.Sq` = md("**Mean Sq**"), `F.Value` = md("**F Value**"),
+             `P.Value` = md("**P Value**")) %>%
+  cols_align("center") 
+```
+
+### Linear Regression
+
+Two linear regression models are built. Model 1, the first linear
+regression model, is a simple linear regression model with no control
+variables. The dependent variable in this model is CO2 Emissions, and
+the independent variable is Engine Size. One of the main assumptions of
+linear regression is that the model's residuals are normally
+distributed. A residual versus fitted plot was generated from Model 1. A
+clear diminishing relationship is present in the plot, indicating that a
+polynomial transformation needs to be applied to Engine Size to fit the
+assumption of linear regression mentioned above. The residual vs. fitted
+plot is displayed below.
+
+```{r, fig.dim = c(5.75, 3.75), fig.align = "center"}
+lm1 <- lm(Emissions ~ Engine_Size, data = data)
+
+model_frame3 <- fortify(lm1)
+
+smoothed3 <- as.data.frame(with(model_frame3, lowess(x = .fitted, y = .resid)))
+
+ggplot(data = lm1, aes(x = .fitted, y = .resid)) +
+  geom_point(color = "#005288", size = 0.6) +
+  geom_hline(yintercept = 0, color = "grey", linetype = "dashed") +
+  geom_path(data = smoothed3, aes(x = x, y = y), col = "black") +
+  labs(title = "Residual vs. Fitted Plot for Linear Regression: Model 1",
+       x = "Fitted Values", y = "Residuals") +
+  theme_bw() +
+   theme(plot.title = element_text(hjust = 0.5, size = 11),
+        axis.title = element_text(size = 10),
+        axis.text.x = element_text(size = 9),
+        axis.text.y = element_text(size = 9))
+```
+
+Prior to building Model 2, three new binary variables are created. The
+first new binary variable, Premium Gas, represents whether the vehicle
+uses premium gasoline. The point biserial correlation is generated
+between CO2 Emissions and Premium Gas, and the coefficient from the
+correlation test is 0.24. Because a point biserial correlation
+coefficient above 0.20 is deemed moderate, this result indicates a
+moderate positive correlation between the variables. Therefore, Premium
+Gas will be included as a control variable in Model 2. The second new
+binary variable, Four Cylinders, represents whether the vehicle has a
+four-cylinder engine. From initial research, the most common number of
+cylinders in a vehicle's engine is four. Also, the research displayed
+that vehicles with four-cylinder engines are more fuel-efficient than
+vehicles with more than four cylinders. These are the main reasons
+engines with four cylinders will be controlled for. The point biserial
+correlation is generated between CO2 Emissions and Four Cylinders, and
+the coefficient from the correlation test is −0.70. This result
+indicates a strong negative correlation between the variables. This
+binary variable will also be included as a control variable in Model 2.
+The third new binary variable, SUV, represents whether the vehicle is an
+SUV. Research showed that SUVs emit higher CO2 Emissions than smaller
+passenger cars. The point biserial correlation is generated between CO2
+Emissions and SUV, and the coefficient from the correlation test is
+0.14. This result indicates a weak positive correlation between the
+variables. Even though a moderate correlation is not present, SUV will
+be included in Model 2 to see if it has a statistically significant
+relationship with the dependent variable.
+
+Model 2, the second linear regression model, is a multivariate linear
+regression model. The dependent variable is CO2 emissions. Next, Engine
+Size is the independent variable of interest in the model. There are
+five control variables. All three of the newly generated binary
+variables that were mentioned above are control variables in this model.
+Last, two additional dummy variables are included as control variables
+from the variable Location Make, which represents the location the
+vehicle was manufactured in. The first dummy variable from Location Make
+is EUR, which represents whether the vehicle's manufacturing location is
+in Europe. The second dummy variable from Location Make is USA, which
+represents whether the vehicle's manufacturing location is in the United
+States. Because of the dummy variable trap, the third dummy variable,
+Asia, from Location Make is dropped.
+
+Now it will be investigated whether Model 2 follows certain assumptions
+regarding linear regression. First, multicollinearity must not be
+present in the model. To see if multicollinearity is present, the
+variance inflation factor (VIF) of each variable in Model 2 is
+generated. The general rule of thumb is that if a variable has a VIF
+below 5, it is acceptable to include the model, and multicollinearity is
+likely avoided. All of the VIFs from variables in the model fit this
+criterion, indicating this assumption of linear regression is met.
+Second, the residuals versus fitted plot is examined to see whether the
+variance is constant in the residuals. The variance is constant, meaning
+the residuals are homoscedastic, and this assumption of linear
+regression is met. The residual vs. fitted plot is displayed below.
+
+```{r, fig.dim = c(5.75, 3.75), fig.align = "center"}
+data <- data %>%
+  mutate(Prem_Gas = if_else(Fuel_Type == "Z", 1, 0),
+         Four_Cyl = if_else(Cylinders == "4", 1, 0),
+         SUV = if_else(Class %in% c("Small SUV", "Standard SUV"), 1, 0),
+         Squared_Engine_Size = Engine_Size^2)
+     
+pbc1 <- cor.test(data$Prem_Gas, data$Emissions)
+
+print(pbc1)
+
+pbc2 <- cor.test(data$Four_Cyl, data$Emissions)
+
+print(pbc2)
+
+pbc3 <- cor.test(data$SUV, data$Emissions)
+
+print(pbc3)
+
+lm2 <- lm(Emissions ~ Engine_Size + Squared_Engine_Size + Four_Cyl + Prem_Gas +
+                      Location_Make + SUV, data = data)
+
+summary(lm2)
+
+vif(lm2)
+
+model_frame4 <- fortify(lm2)
+
+smoothed4 <- as.data.frame(with(model_frame4, lowess(x = .fitted, y = .resid)))
+
+ggplot(data = lm2, aes(x = .fitted, y = .resid)) +
+  geom_point(color = "#005288", size = 0.6) +
+  geom_hline(yintercept = 0, color = "grey", linetype = "dashed") +
+  geom_path(data = smoothed4, aes(x = x, y = y), col = "black") +
+  labs(title = "Residual vs. Fitted Plot for Linear Regression: Model 2",
+       x = "Fitted Values", y = "Residuals") +
+  theme_bw() +
+   theme(plot.title = element_text(hjust = 0.5, size = 11),
+        axis.title = element_text(size = 10),
+        axis.text.x = element_text(size = 9),
+        axis.text.y = element_text(size = 9))
+```
+
+Finally, the residuals from the model must be normally distributed. A
+histogram is produced below from the residuals of Model 2, and they are
+normally distributed. Overall, Model 2 fits all three assumptions
+mentioned regarding linear regression.
+
+```{r, fig.dim = c(5.75, 3.75), fig.align = "center"}
+ggplot(mapping = aes(x = residuals(lm2))) +
+  geom_histogram(color = "black", fill = "#c0c2c4", bins = 20) +
+  labs(title = "Distribution of Residuals for Linear Regression: Model 2",
+       x = "Residuals", y = "Frequency") +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5, size = 11),
+        axis.title = element_text(size = 10),
+        axis.text.x = element_text(size = 9),
+        axis.text.y = element_text(size = 9))
+```
+
+Because the assumptions of linear regression are met, the statistically
+significant coefficients from Model 2 will be interpreted. In Model 2,
+the independent variable of interest, the quadratic of Engine Size, is
+statistically significant at the 1% significance level. Because Engine
+Size is a quadratic term, it requires the use of an initial value to
+interpret the coefficients. Thus, the change in CO2 emission per liter
+change in engine size is 52.6959 + (-2.7414 \* Engine Size), and the
+initial value of Engine Size is 1. After performing the necessary
+calculations with the initial value of 1, the marginal effect is 49.95.
+Model 2 displays that as a vehicle's engine size increases, the marginal
+effect becomes less. For example, given the initial value of 5, the
+marginal effect is 38.98.
+
+The coefficient of the control variable Four_Cyl is both negative and
+statistically significant at the 5% significance level. Interpreting the
+coefficient for this variable implies that, on average, vehicles with
+four-cylinder engines have lower levels of CO2 Emissions than vehicles
+that do not have four-cylinder engines by 2.8 g/km. The coefficient of
+the control variable Prem_Gas is both positive and statistically
+significant at the 1% significance level. Interpreting the coefficient
+for this variable implies that, on average, vehicles that use premium
+gasoline have higher levels of CO2 Emissions than vehicles that do not
+use premium gasoline by 8.72 g/km. The coefficient of the control
+variable EUR was both positive and statistically significant at the 1%
+significance level. Interpreting the coefficient implies that, on
+average, vehicles manufactured in Europe have higher levels of CO2
+Emissions than vehicles manufactured in Asia by 17 g/km. Next, the
+coefficient of the control variable USA was both positive and
+statistically significant at the 1% level. Interpreting the coefficient
+implies that, on average, vehicles manufactured in the United States
+have a higher level of CO2 Emissions than vehicles manufactured in Asia
+by 16.42 g/km. The coefficient of the control variable SUV is both
+positive and statistically significant at the 1% level. Interpreting the
+coefficient for this variable implies that, on average, vehicles that
+are SUVs have a higher level of CO2 emissions than vehicles that are not
+SUVs by 16.42 g/km.
+
+Now both the r-squared value and adjusted r-squared values for Model 2
+are observed. The r-squared value in this model displays the portion of
+the variation in CO2 Emissions explained by the independent variables.
+In Model 2, the r-squared value is 0.7704, indicating that 77.04% of the
+variation in CO2 Emissions is explained by the independent variables in
+the model. An r-squared value above 70% indicates a strong effect size
+in the mode. Clearly, the independent variables in Model 2 have strong
+explanatory power. Because six independent variables are included in
+Model 2, the adjusted r-squared value is also looked at. The adjusted
+r-squared displays the same measurement as the r-squared value, except
+the adjusted r-squared value accounts for a penalty for each additional
+independent variable added after the initial one. The adjusted r-squared
+value for Model 2 is 0.7702, which is almost the same as the model's
+r-squared value. Overall, this finding shows that the high r-squared
+value generated from Model 2 is not misleading because the also high
+adjusted r-squared value confirms that the model is not overfitting the
+data.
+
+The regression outputs for Model 2 are displayed below.
+
+```{r, results = "asis", fig.align = "center"}
+tbl_regression(lm2) %>%
+  modify_header(update = list(label = "**Variable**",
+                              estimate = "**Coefficient**")) %>%
+  add_glance_table(include = c(nobs, r.squared)) %>%
+  modify_footnote(everything() ~ NA, abbreviation = TRUE)
+```
+
+### Logistic Regression
+
+The median of CO2 emissions for vehicles in the data set is 245 g/km. A
+logistic regression model is built to answer the following question:
+What vehicle features are associated with CO2 emissions greater than 245
+g/km? A binary variable named Bin_Em is created to indicate whether a
+vehicle's CO2 emissions are above 245 g/km. Bin_Em is the dependent
+variable in Model 1, which is the first logistic regression model. In
+logistic regression, the dependent variable must be binary, and this
+condition is satisfied. In this model, the independent variable of
+interest is engine size. The relationship between the two variables will
+be displayed in a scatter plot. This graph will allow for the
+relationship of the variables to be understood before Model 1 is built.
+
+```{r, fig.dim = c(5.75, 3.75), fig.align = "center"}
+median(data$Emissions)
+
+data <- data %>%
+  mutate(Bin_Em = if_else(Emissions > median(Emissions), 1, 0),
+         USA = if_else(Location_Make == "USA", 1, 0))
+
+ggplot(data = data, mapping = aes(x = Engine_Size, y = Bin_Em)) +
+  geom_point(color = "#005288", size = 0.6) +
+  geom_smooth(method = glm, se = FALSE, col = "black", size = 0.5,  
+              method.args = list(family=binomial)) +
+  labs(title = "Binary Emissions vs. Engine Size",
+       x = "Engine Size", y = "Binary Emissions") +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5, size = 11),
+        axis.title = element_text(size = 10),
+        axis.text.x = element_text(size = 9),
+        axis.text.y = element_text(size = 9))
+```
+
+Model 1 is now built with the variables specified earlier. Other than
+engine size, no independent variables are included in this model. This
+approach will ensure a better understanding of how the effect has
+changed once the control variables are added.
+
+```{r}
+glm1 <- glm(Bin_Em ~ Engine_Size, family = binomial(link = logit), data = data)
+
+summary(glm1)
+
+tbl_regression(glm1, exp = TRUE) %>%
+  modify_header(update = list(label = "**Variable**")) %>%
+  add_glance_table(include = (nobs)) %>%
+  modify_footnote(everything() ~ NA, abbreviation = TRUE)
+```
+
+Model 2, the second logistic regression model, includes all the control
+variables. The control variables included in this model are the
+following: Fuel_Consumption, Prem_Gas, SUV, and USA. The control
+variables Prem_Gas and SUV were used in the multivariate linear
+regression model from a previous portion of this analysis, whereas
+Fuel_Consumption and USA have not been included in previous models.
+Fuel_Consumption is a numeric variable, and USA is a binary variable
+indicating whether the vehicle is manufactured in the United States. The
+VIF for each variable is calculated to see if multicollinearity is
+present in the model. Multicollinearity is not present in the Model 2
+results. Finally, it is checked whether the log-odds of the dependent
+variable have a linear relationship with each of the numeric independent
+variables. The logit values are plotted over both numeric variables,
+which are Engine_Size and Fuel_Consumption. The log-odds relationships
+in the plots seem linear.
+
+```{r, fig.dim = c(5.75, 3.75), fig.align = "center"}
+glm2 <- glm(Bin_Em ~ Engine_Size + Fuel_Consumption + Prem_Gas + USA + SUV, 
+            family = binomial(link = logit), data = data)
+
+summary(glm2)
+
+vif(glm2)
+
+df_model <- data %>%
+  select(Engine_Size, Fuel_Consumption) %>%
+  rename(`Engine Size` = Engine_Size, `Fuel Consumption` = Fuel_Consumption)
+
+predictors <- colnames(df_model) 
+
+df_model$probabilities <- glm2$fitted.values
+
+df_model <- df_model %>%
+  mutate(logit = log(probabilities/(1 - probabilities))) %>%
+  select(-probabilities) %>% 
+  gather(key = "predictors", value = "predictor.value", -logit)
+
+ggplot(data = df_model, mapping = aes(x = predictor.value, y = logit)) +
+  geom_point(color = "#005288", size = 0.6) +
+  geom_smooth(method = loess, se = FALSE, col = "black", size = 0.7) +
+  facet_wrap(~predictors, scales = "free") +
+  labs(title = "Logit Values vs. Predictor Values",
+       x = "Predictor Value", y = "Logit Value") +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5, size = 11),
+        axis.title = element_text(size = 10),
+        axis.text.x = element_text(size = 9),
+        axis.text.y = element_text(size = 9),
+        strip.background = element_blank())
+```
+
+The outputs from Model 2, the second logistic regression model, will now
+be interpreted. Initially, the change in log-odds for each of the
+variables is generated. This is not extremely useful, and the odds
+ratios for the variables are produced by exponentiating the log-odds
+coefficients. The variables Engine_Size, Fuel_Consumption, and SUV all
+have a statistically significant relationship with Bin_Em at the 1%
+significance. The odds ratios of the statistically significant variables
+will be used for interpretation purposes. Looking at the odds ratio for
+Engine_Size, each additional liter in engine size makes a vehicle 3.33
+times more likely to have CO2 emissions above the median value of 245
+g/km. Next, the odds ratio for Fuel_Consumption shows each additional
+liter per 100 km in fuel consumption makes a vehicle 7.13 times more
+likely to have CO2 emissions above the median value of 245 g/km. The
+odds ratio for SUV displays that SUVs are 1.78 times more likely than
+other vehicles to have CO2 emissions above the median value of 245 g/km.
+Finally, the coefficients for the variables Prem_Gas and SUV do not have
+a statistically significant relationship with Bin_Em.
+
+Interpreting marginal effects is another method to analyze results from
+logistic regression models. Thus, the marginal effects for the variables
+that are statistically significant in Model 2 will be interpreted.
+Holding all other variables at their observed values, on average, a
+one-liter increase in the engine size is associated with a 7% increase
+in the probability of a vehicle's CO2 emissions being above the median
+value of 245 g/km. Holding all other variables at their observed values,
+on average a one liter per 100 km increase in fuel consumption is
+associated with an 11% increase in the probability of a vehicle's CO2
+emissions being above the median value of 245. Last, holding all other
+variables at their observed values, SUVs are associated with a 3%
+increase in their probability of being above the median value of 245
+g/km than non-SUVs on average.
+
+There is no r-squared for logistic regression. Instead, a metric called
+McFadden's r-squared can be used to evaluate the explanatory power of
+the model. For McFadden's r-squared, a value close to 0 has little
+predictive power, whereas a value greater than 0.40 indicates that the
+model fits the data extremely well. In model 2, the value is 0.73, which
+indicates that the model performs extremely well with the data.
+
+```{r}
+margins(glm2, variables = c("Engine_Size", "Fuel_Consumption", "SUV"))
+
+pR2(glm2)["McFadden"]
+```
+
+The regression outputs for Model 2 are displayed below.
+
+```{r, results = "asis", fig.align = "center"}
+tbl_regression(glm2, exp = TRUE) %>%
+  modify_header(update = list(label = "**Variable**")) %>%
+  add_glance_table(include = (nobs)) %>%
+  modify_footnote(everything() ~ NA, abbreviation = TRUE)
+```
+
+### K-Nearest Neighbors
+
+A random seed is set to make the process of reordering rows based on
+their indices reproducible in the future. Then, the rows in the data are
+reordered. The data are split into a training set and a test set. The
+training data consist of 70% of the original data, and the test data
+consist of the other 30%. CO2 Emissions will be the variable that Model
+1, the first k-nearest neighbors model, is trying to predict. Model 1
+will not use any special resampling or multiple-fold validation. The
+training data are used to train the k-nearest neighbors algorithm to
+predict the CO2 Emissions of vehicles. Engine size and fuel consumption
+will be the two predictors for Model 1. The rows for each vehicle in the
+training data will be used as the "neighbors" for predicting the prices
+of vehicles in the test data. For each vehicle in the test data, the
+average CO2 emissions of its neighbors is calculated. Because there are
+predicted values for the CO2 Emissions of vehicles in the test data, it
+is possible to find how well Model 1 predicts the CO2 Emissions of
+vehicles by comparing the actual values of CO2 emissions for the
+vehicles to the predicted ones. An error metric is generated, which is
+the root mean square error, (RMSE) to judge how well Model 1 performs at
+predicting a vehicle's level of CO2 emissions. The root mean square
+error of this model is 9.95.
+
+```{r}
+ml_data <- data 
+
+set.seed(1)
+
+rows <- sample(nrow(ml_data))
+
+ml_data <- ml_data[rows, ]
+
+train_indices <- createDataPartition(y = ml_data$Emissions,
+                                     p = 0.7,
+                                     list = FALSE)
+
+train <- ml_data[train_indices, ] 
+
+test <- ml_data[-train_indices, ] 
+
+train_control1 <- trainControl(method = "none")
+
+knn1 <- train(Emissions ~ Engine_Size + Fuel_Consumption,
+              data = train,
+              method = "knn",
+              trControl = train_control1)
+
+test_predictions1 <- predict(knn1, newdata = test)
+
+test <- cbind(test, test_predictions1)
+
+test <- test %>%
+  rename(Emissions_Predictions1 = test_predictions1) %>%
+  relocate(Emissions_Predictions1, .after = Emissions)
+
+rmse1 <- test %>%
+  mutate(squared_error = (Emissions - Emissions_Predictions1)^2) %>%
+  select(squared_error) %>%
+  summarize(rmse = sqrt(mean(squared_error)))
+```
+
+Model 2, the second k-nearest neighbors model in this analysis includes
+three predictors for CO2 Emissions rather than just two, like the
+previous model. The same two predictors in the previous model are
+included in this one. Engine Cylinders is included in Model 2. The goal
+of adding this third predictor is to lower the RMSE value, thus getting
+more accurate predictions for CO2 Emissions in the test data. Hyper
+parameter optimization is implemented in this model to see what number
+of neighbors produces the lowest RMSE. This method was used by grid
+searching along a domain of 1 to 20 for the optimal number of neighbors.
+This number ends up being 1. Also, cross-validation is used in this
+model. Below is a plot that displays the cross validated search grid
+results.
+
+```{r, fig.dim = c(5.75, 3.75), fig.align = "center"}
+knn_grid2 <- expand.grid(k = 1:20)
+
+train_control2 <- trainControl(method = "cv", number = 5)
+
+knn2 <- train(Emissions ~ Engine_Size + Fuel_Consumption + Cylinders,
+              data = train,
+              method = "knn",
+              trControl = train_control2,
+              tuneGrid = knn_grid2)
+
+ggplot(data = knn2) +
+  geom_line(color = "#005288") +
+  geom_point(color = "black", size = 0.5) +
+  labs(title = "Cross Validated Search Grid Results",
+       x = "Number of Neighbors", y = "RMSE") +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5, size = 11),
+        axis.title = element_text(size = 10),
+        axis.text.x = element_text(size = 9),
+        axis.text.y = element_text(size = 9),
+        strip.background = element_blank())
+```
+
+The RMSE for Model 2 is 9.26, which is lower than the RMSE of the model
+above. Overall, Model 2 is better at predicting the CO2 Emissions of a
+vehicle than the initial k-nearest neighbors model.
+
+```{r}
+test_predictions2 <- predict(knn2, newdata = test)
+
+test <- cbind(test, test_predictions2)
+
+test <- test %>%
+  rename(Emissions_Predictions2 = test_predictions2) %>%
+  relocate(Emissions_Predictions2, .after = Emissions_Predictions1)
+
+rmse2 <- test %>%
+  mutate(squared_error = (Emissions - Emissions_Predictions2)^2) %>%
+  select(squared_error) %>%
+  summarize(rmse = sqrt(mean(squared_error)))
+```
+
+## V. Conclusion
+
+Many noteworthy findings emerged from this statistical analysis of the
+relationship between vehicles' CO2 emission and their characteristics.
+The exploratory data analysis employed descriptive statistics,
+visualization, and correlation tests. A significant finding was the
+strong linear relationship between vehicles' CO2 emissions and engine
+size. This was shown through a high Pearson correlation coefficient of
+0.85. Another insightful finding was a similarly strong correlation
+between CO2 emissions and engine cylinders. Because cylinders were an
+ordinal variable, the Spearman correlation coefficient between cylinders
+and CO2 emissions was generated, which was 0.85. This relationship is
+nonlinear, unlike that of CO2 emissions and engine size.
+
+The statistical modeling in this analysis provided many noteworthy new
+insights. The ANOVA, linear regression, and logistic regression models
+all highlighted key relationships between CO2 emissions and the various
+explanatory variables. A key finding was the statistically significant
+relationship between CO2 emissions and the quadratic term of engine size
+for vehicles. Interpreting this term provided further insight into the
+relationship of the variables---the marginal effect decreases as a
+vehicle's engine size increases. The machine learning models using
+k-nearest neighbors indicated the variables that are strong predictors
+for a vehicle's level of CO2 emissions. The machine learning model with
+the lowest RMSE included the predictor's engine size, fuel consumption,
+and cylinders. Overall, the results validate the majority of the initial
+research findings, and individuals can better understand what
+characteristics of vehicles contribute to the release of excessive CO2
+emissions into the Earth's atmosphere.
+
+::: {.tocify-extend-page data-unique="tocify-extend-page" style="height: 5px;"}
+:::
