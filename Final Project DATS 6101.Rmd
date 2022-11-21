@@ -1,6 +1,6 @@
 ---
 title: "Statistical Analysis of CO2 Emissions From Vehicles"
-author: "Alex Zakrzeski, Aditya Nayak, Purvi Jain, Tracie Robinson, and Ale Meja"
+author: "Alex Zakrzeski, Aditya Nayak, Purvi Jain, Tracie Robinson, and Alejandra Meja"
 output:
   html_document:
     code_folding: hide
@@ -99,8 +99,8 @@ dependent variable in the research was "CO2 Emissions," and the
 remaining eight variables were independent variables. The research
 design encompassed numerous statistical techniques, including
 descriptive statistics, correlation tests, visualization, ANOVA, linear
-regression, and K-Nearest Neighbors. Overall, the findings offer a
-clearer understanding of which characteristics of vehicles are the most
+regression, logistic regression, and K-Nearest Neighbors. Overall, the findings
+offer a clearer understanding of which characteristics of vehicles are the most
 responsible for high CO2 emissions, therefore making individuals more
 likely to choose to drive eco-friendly vehicles to slow climate change.
 
