@@ -99,10 +99,10 @@ dependent variable in the research was "CO2 Emissions," and the
 remaining eight variables were independent variables. The research
 design encompassed numerous statistical techniques, including
 descriptive statistics, correlation tests, visualization, ANOVA, linear
-regression, logistic regression, and K-Nearest Neighbors. Overall, the findings
-offer a clearer understanding of which characteristics of vehicles are the most
-responsible for high CO2 emissions, therefore making individuals more
-likely to choose to drive eco-friendly vehicles to slow climate change.
+regression, logistic regression, and K-Nearest Neighbors. Overall, the
+findings offer a clearer understanding of which characteristics of vehicles
+are the most responsible for high CO2 emissions, therefore making individuals
+more likely to choose to drive eco-friendly vehicles to slow climate change.
 
 ```{r, include = FALSE}
 knitr::opts_chunk$set(warning = F, results = "hide", message = F)
