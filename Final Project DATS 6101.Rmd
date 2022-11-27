@@ -1,6 +1,6 @@
 ---
 title: "Statistical Analysis of CO2 Emissions From Vehicles"
-author: "Alex Zakrzeski, Aditya Nayak, Purvi Jain, Tracie Robinson, and Alejandra Meja"
+author: "Alex Zakrzeski, Aditya Nayak, Purvi Jain, Tracie Robinson, and Alejandra Mejia"
 output:
   html_document:
     code_folding: hide
@@ -124,6 +124,7 @@ library(gtsummary)
 library(margins)
 library(pscl)
 library(caret)
+
 ```
 
 ## II. Data Preparation
@@ -1049,6 +1050,27 @@ tbl_regression(glm2, exp = TRUE) %>%
   add_glance_table(include = (nobs)) %>%
   modify_footnote(everything() ~ NA, abbreviation = TRUE)
 ```
+
+Additionally to using McFadden as evaluation tool we also performed the Hosmer and Lemeshow Goodness of Fit test
+```{r HosmerLemeshow}
+
+library("ResourceSelection") 
+glmLogitHoslem = hoslem.test(data$Bin_Em, fitted(glm1))
+glmLogitHoslem
+glm2LogitHoslem = hoslem.test(data$Bin_Em, fitted(glm2))
+glm2LogitHoslem
+
+```
+The p-value of `r glmLogitHoslem$p.value` and `r glm2LogitHoslem$p.value` is 
+fairly small. This could indicate our models are not really a good fit, 
+despite all the coefficients are significant. Notwithstanding, it is worth 
+mentioning that since the inception of the Hosmer and Lemeshow Goodness of Fit 
+test, many statistical books do not recommend to use it, given it multiple 
+flaws like: not taking into account overfitting and its tendency to have low 
+power, its little guidance on selecting the number of subgroups and its 
+arbitrary choices of bins. For this reasons, and based on our additional
+analysis we considered our models are performing fairly well. 
+
 
 ### K-Nearest Neighbors
 
