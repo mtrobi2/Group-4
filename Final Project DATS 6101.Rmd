@@ -1219,5 +1219,22 @@ research findings, and individuals can better understand what
 characteristics of vehicles contribute to the release of excessive CO2
 emissions into the Earth's atmosphere.
 
+
+## VI. References
+* Viollet, O. (2019). Predict cars’ CO2 emissions (v1.0). https://rpubs.com. https://rpubs.com/Olivier_Viollet_2019/CO2_emissions
+* M. Singh and R. Dubey, "Deep Learning Model Based CO2 Emissions Prediction using Vehicle Telematics Sensors Data," in IEEE Transactions on Intelligent Vehicles, doi: 10.1109/TIV.2021.3102400.
+* N. Subramaniam and N. Yusof(2021). "Modelling of CO2 Emission Prediction for Dynamic Vehicle Travel Behavior Using Ensemble Machine Learning Technique," 2021 IEEE 19th Student Conference on Research and Development (SCOReD), pp. 383-387, doi: 10.1109/SCOReD53546.2021.9652757.
+* Kakouei, Aliakbar & Vatani, Ali & Idris, Ahmad. (2012). An estimation of traffic related CO2 emissions from motor vehicles in the capital city of, Iran. Iranian journal of environmental health science & engineering. 9. 13. 10.1186/1735-2746-9-13. 
+* Anderson, M. L., and M. Auffhammer, 2014: Pounds that kill. Rev. Econ. Stud., 82, 35–571.
+* Y. Zhang (2021), "Prediction of Esports Game Results Using Early Game Datasets," ICMLCA 2021; 2nd International Conference on Machine Learning and Computer Application, pp. 1-6
+* S. Lee-Cultura, K. Sharma, S. Papavlasopoulou and M. Giannakos (2020), "Motion-Based Educational Games: Using Multi-Modal Data to Predict Player’s Performance," 2020 IEEE Conference on Games (CoG), pp. 17-24, doi: 10.1109/CoG47356.2020.9231892.
+* S. K. Nivetha, M. Geetha, R. C. Suganthe, R. M. Prabakaran, S. Madhuvanan and A. M. Sameer (2022), "A Deep Learning Framework for Football Match Prediction," 2022 International Conference on Computer Communication and Informatics (ICCCI), pp. 1-7, doi: 10.1109/ICCCI54379.2022.9740760.
+* C. Pipatchatchawal and S. Phimoltares (2021), "Predicting Football Match Result Using Fusion-based Classification Models," 2021 18th International Joint Conference on Computer Science and Software Engineering (JCSSE), pp. 1-6, doi: 10.1109/JCSSE53117.2021.9493837.
+* Paruchuri Vik (2012).Predicting the NBA Finals with R. https://www.vikparuchuri.com/predicting-nba-finals-with-r/
+* Herb Wilson (2018). Learning R in R Studio: Predicting Baseball Winning Percentages [Video]. YouTube. https://www.youtube.com/watch?v=rQosPYLDZpg
+*  Hickman, Robert (2019). An Introduction to Modelling Soccer Matches in R (part 1).
+https://www.r-bloggers.com/2019/05/an-introduction-to-modelling-soccer-matches-in-r-part-1/
+
+
 ::: {.tocify-extend-page data-unique="tocify-extend-page" style="height: 5px;"}
 :::
