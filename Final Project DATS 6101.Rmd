@@ -536,18 +536,53 @@ ggplot(data = data, mapping = aes(x = "", y = Emissions)) +
 
 ### ANOVA
 
-Three ANOVA models are built. Model 1, the first ANOVA model, is a
-two-way ANOVA that displays CO2 Emissions as a function of Number of
-Cylinders and Fuel Type. At the 1% significance level, Number of
-Cylinders is statistically significant. Then, at the 5% significance
-level, Fuel Type is statistically significant. The model's residual
-variance is 7,400,174. Model 2, the second ANOVA model, is a two-way
-ANOVA that displays CO2 Emissions as a function of the interaction
-between Number of Cylinders and Fuel Type. At the 1% significance level,
-Number of Cylinders and the interaction between Number of Cylinders and
-Fuel Type are statistically significant. At the 5% significance level,
-Fuel Type is statistically significant. The model's residual variance is
-6,995,135, which is lower than that of the first ANOVA model.
+Three ANOVA models are built.Under the first model, we expect to understand if 
+CO2 emissions are different among the numbers of cylinders in a car and its fuel
+type. Therefore, Model 1,  is a two-way ANOVA that displays CO2 Emissions as a 
+function of Number of Cylinders and Fuel Type. At the 1% significance level, 
+Number of Cylinders is statistically significant. Then, at the 5% significance
+level, Fuel Type is statistically significant. The model's residual variance is 
+7,400,174.From this output, we can see that Cylinders explain a significant 
+amount of variation in average CO2 emissions with p values less than 0.001, 
+while Fuel type even though still significant explains in a smaller proportion 
+the variation in average CO2 emissions. Moreover, we are able to see that the 
+residual met the assumption of normality.
+
+```{r}
+data <- data %>%
+  mutate(Cylinders = as.factor(Cylinders),
+         Fuel_Type = as.factor(Fuel_Type))
+
+levels(data$Cylinders)
+
+levels(data$Fuel_Type)
+
+twa1 <- aov(Emissions ~ Cylinders + Fuel_Type, data = data)
+
+summary(twa1)
+```
+
+```{r, results = "asis", fig.align = "center"}
+report(twa1)
+#code to create the density plot of residuals
+plot(density(twa1$residuals))
+#code to create a Q-Q plot
+qqnorm(twa1$residuals)
+qqline(twa1$residuals, datax = FALSE, distribution = qnorm, probs=c(0.25, 0.75))
+
+```
+
+We have a reason to think that two of your independent variables have an 
+interaction effect rather than an additive effect. Therefore, Model 2, the 
+second ANOVA model, is a two-way ANOVA that displays CO2 Emissions as a function
+of the interaction between Number of Cylinders and Fuel Type. At the 1% 
+significance level, Number of Cylinders and the interaction between Number of 
+Cylinders and Fuel Type are statistically significant. At the 5% significance 
+level, Fuel Type is statistically significant. The model's residual variance is
+6,995,135, which is lower than that of the first ANOVA model.We can also see 
+that the ‘Cylinders:Fuel_Type:density’ variable has a high sum-of-squares value
+and a low p value, which means there is a greater variation that can be 
+explained by the interaction between cylinders and fuel type.
 
 The AIC for both models is generated. The model with the smallest AIC
 will be the best-performing model. The second model, a two-way ANOVA
@@ -562,17 +597,6 @@ the residuals of the ANOVA model homoscedastic. The residual vs. fitted
 plot is displayed below.
 
 ```{r, fig.dim = c(5.75, 3.75), fig.align = "center"}
-data <- data %>%
-  mutate(Cylinders = as.factor(Cylinders),
-         Fuel_Type = as.factor(Fuel_Type))
-
-levels(data$Cylinders)
-
-levels(data$Fuel_Type)
-
-twa1 <- aov(Emissions ~ Cylinders + Fuel_Type, data = data)
-
-summary(twa1)
 
 twa2 <- aov(Emissions ~ Cylinders * Fuel_Type, data = data)
 
@@ -586,6 +610,7 @@ aictab(model_set, modnames = model_names)
 model_frame1 <- fortify(twa2)
 
 smoothed1 <- as.data.frame(with(model_frame1, lowess(x = .fitted, y = .resid)))
+
 
 ggplot(data = twa2, aes(x = .fitted, y = .resid)) +
   geom_point(color = "#005288", size = 0.6) +
